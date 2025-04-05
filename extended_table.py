@@ -1,17 +1,16 @@
 import pandas as pd
-from annotation_column import AnnotationColumn
 from db import Db, VariantDb, ValidationDb
 from instructions_provider import InstructionsProvider
 
 
 class ExtendedTable:
-    def __init__(self, key_cols: list[str], instructions_provider: InstructionsProvider, ann_cols: list[AnnotationColumn] | None = None) -> None:
+    def __init__(self ,key_cols: list[str], instructions_provider: InstructionsProvider, variant_dbs: list[VariantDb] | None = None, validation_dbs: list[ValidationDb] | None = None, ann_cols: list[str] | None = None) -> None:
         self.table: pd.DataFrame = pd.DataFrame()
-        self.variant_dbs: list[VariantDb] = []
-        self.validation_dbs: list[ValidationDb] = []
         self.key_cols: list[str] = key_cols
         self.instructions_provider: InstructionsProvider = instructions_provider
-        self.ann_cols: list[AnnotationColumn] = ann_cols if ann_cols is not None else []
+        self.variant_dbs: list[VariantDb] = []
+        self.validation_dbs: list[ValidationDb] = []
+        self.ann_cols: list[str] = ann_cols if ann_cols is not None else []
 
     def upload_table(self, file_path: str) -> None:
         """
@@ -56,7 +55,7 @@ class ExtendedTable:
         self.instructions_provider.instructions["pre_processor"](db.df)
         
         # Define the indicator column name for this database.
-        indicator_col: str = f"{db.name}_db"
+        indicator_col: str = db.name
         
         # Ensure the indicator column exists in the extended table.
         if indicator_col not in self.table.columns:
@@ -67,15 +66,15 @@ class ExtendedTable:
             new_df = db.df.copy()
             new_df[indicator_col] = 1
             # Compute annotation columns for the new variants.
-            for ann in self.ann_cols:
-                self.instructions_provider.instructions[ann.name]["compute_function"](new_df)
+            for ann_col in self.ann_cols:
+                self.instructions_provider.instructions[ann_col]["compute_function"](new_df)
             self.table = new_df
             print(f"{len(new_df)} out of {len(db.df)} new variants added from {db.name}.")
             return
 
         # Use a left merge (with indicator) to identify which rows in db.df are already present.
         merge_df = pd.merge(
-            db.df,
+            db.df[db.key_cols],
             self.table[self.key_cols],
             on=self.key_cols,
             how='left',
@@ -96,8 +95,8 @@ class ExtendedTable:
         # For new variants, compute annotation values and set the indicator.
         new_df[indicator_col] = 1
 
-        for ann in self.ann_cols:
-            self.instructions_provider.instructions[ann.name]["compute_function"](new_df)
+        for ann_col in self.ann_cols:
+            self.instructions_provider.instructions[ann_col]["compute_function"](new_df)
         
         # Align new_df with self.table (ensuring all expected columns are present).
         new_df = new_df.reindex(columns=self.table.columns, fill_value=0)
@@ -106,27 +105,6 @@ class ExtendedTable:
         self.table = pd.concat([self.table, new_df], ignore_index=True)
         
         print(f"Database '{db.name}' merged: {len(existing_df)} existing variants updated and {len(new_df)} new variants added.")
-
-
-    def register_annotation_column(self, annotation_col: AnnotationColumn) -> None:
-        """
-        Register an annotation column to the extended table.
-        This method applies the compute_function for the new column across the entire table,
-        and then stores the annotation column for consistency in future updates.
-        """
-        self.ann_cols.append(annotation_col)
-        print(f"Annotation column '{annotation_col.name}' added.")
-
-    def update_annotation_column(self, annotation_col: AnnotationColumn) -> None:
-        """
-        Updates an existing annotation column in the extended table.
-        This method applies the compute_function for the updated column across the entire table.
-        """
-        if annotation_col in self.ann_cols:
-            self.table[annotation_col.name] = self.table.apply(annotation_col.compute, axis=1)
-            print(f"Annotation column '{annotation_col.name}' updated.")
-        else:
-            raise ValueError(f"Annotation column '{annotation_col.name}' not found in the table.")
 
     
 

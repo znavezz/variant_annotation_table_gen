@@ -7,46 +7,34 @@ class Db(ABC):
     """
     def __init__(
             self,
-            name: str,
-            key_cols: list[str],
-            description: str | None = None,
-            df: pd.DataFrame | None = None,
-            rest_cols: list[str] | None = None,
-            pre_processors: list[callable] | None = None,
+            db_path: str,
+            instructions: dict[str, any],
+
     ) -> None:
         """
         Initializes a database object.
 
-        :param name: Name of the database.
-        :param description: Description of the database.
-        :param df: DataFrame containing the database data.
-        :param key_cols: List of key columns in the database.
-        :param rest_cols: List of other columns in the database.
-        :param pre_processors: List of pre-processing functions to apply to the DataFrame.
+        :param db_path: Path to the database.
+        :param instructions: Instructions for the database.
         """
-        self.name = name
-        self.description = description
-        self.df = df if df is not None else pd.DataFrame()
-        self.key_cols = key_cols
-        self.rest_cols = rest_cols if rest_cols is not None else []
-        self.pre_processors = pre_processors if pre_processors is not None else []
-
-    def add_pre_processor(self, pre_processor: callable) -> None:
-        """
-        Adds a pre-processing function to the list of pre-processors.
-
-        :param pre_processor: Pre-processing function to add.
-        """
-        self.pre_processors.append(pre_processor)
-        print(f"Pre-processor '{pre_processor.__name__}' added to database '{self.name}'.")
+        self.db_path = db_path
+        self.instructions = instructions
+        self.name = instructions.get("name")
+        self.key_cols = instructions.get("key_cols")
+        self.description = instructions.get("description", None)
+        self.pre_processor = instructions.get("pre_processor", None)
+        self.df = None
 
     def pre_process(self) -> pd.DataFrame:
         """
-        Applies all pre-processing functions to the DataFrame.
+        Pre-processes the DataFrame using the provided pre-processing functions.
         """
-        for pre_processor in self.pre_processors:
-            self.df = pre_processor(self.df)
-            print(f"Applied pre-processor '{pre_processor.__name__}' to database '{self.name}'.")
+        if self.df is None:
+            raise ValueError("DataFrame is not set.")
+        
+        if not callable(self.pre_processor):
+            raise ValueError("Pre-processor is not callable.")
+        self.df = self.pre_processor(self.df)
         return self.df
 
     def get_name(self) -> str:
@@ -61,14 +49,61 @@ class Db(ABC):
         """
         return self.description
     
+    def upload_db(self, file_path: str) -> None:
+        """
+        Uploads the database from a file path.
+        """
+        self.df = pd.read_csv(file_path)
+        print(f"Database '{self.name}' uploaded from {file_path}.")
+
+    
 
 
 class VariantDb(Db):
-    def pre_process(self):
-        print(f"Pre-processing VariantDb: {self.name}")
-        return super().pre_process()
+    def __init__(self, db_path: str, instructions: dict[str, any]) -> None:
+        """
+        Initializes a VariantDb object.
+
+        :param db_path: Path to the database.
+        :param instructions: Instructions for the database.
+        """
+        super().__init__(db_path, instructions)
+        self.df = None
+        self.annotations = instructions.get("annotations", None)
+    
+    def get_annotations(self) -> dict[str, any]:
+        """
+        Returns the annotations for the database.
+        """
+        return self.annotations
+    
+    def set_annotations(self, annotations: dict[str, any]) -> None:
+        """
+        Sets the annotations for the database.
+        """
+        self.annotations = annotations
+        
     
 class ValidationDb(Db):
-    def pre_process(self):
-        print(f"Pre-processing ValidationDb: {self.name}")
-        return super().pre_process()
+    def __init__(self, db_path: str, instructions: dict[str, any]) -> None:
+        """
+        Initializes a ValidationDb object.
+
+        :param db_path: Path to the database.
+        :param instructions: Instructions for the database.
+        """
+        super().__init__(db_path, instructions)
+        self.df = None
+        self.validator = instructions.get("validator", None)
+
+    def get_validator(self) -> dict[str, any]:
+        """
+        Returns the validator for the database.
+        """
+        return self.validator
+    
+    def set_validator(self, validator: dict[str, any]) -> None:
+        """
+        Sets the validator for the database.
+        """
+        self.validator = validator
