@@ -2,11 +2,12 @@ import pandas as pd
 import importlib
 import os
 import sys
-from db import Dbß
+from db import Db, VariantsDb, ValidationDb
 
 
 class InstructionsProvider:
     def __init__(self, dbs_path: str):
+        # Add the base DBs directory to sys.path
         sys.path.append(dbs_path)
         self.dbs_path, self.variants_dbs_path, self.validation_dbs_path = check_dbs_dir_structure(dbs_path)
         self.variants_instructions_map = self.get_db_instructions("default")
@@ -29,130 +30,46 @@ class InstructionsProvider:
         try:
             # Construct the path to the instructions module.
             instructions_path = os.path.join(self.dbs_path, db_type, db_name, "instructions.py")
-            print(f"Loading instructions from {instructions_path}")
             if not os.path.isfile(instructions_path):
                 raise FileNotFoundError(f"Instructions file not found at {instructions_path}.")
-            # Add the directory to the system path.
-            sys.path.append(os.path.dirname(instructions_path))
-            # Import the instructions module.
-            module_name = os.path.basename(instructions_path).replace(".py", "")
-            print(f"Importing module '{module_name}' from path '{os.path.dirname(instructions_path)}'")
-            print(f"module_name: {module_name}")
+            
+            # Compute the module name relative to the base dbs_path.
+            rel_path = os.path.relpath(instructions_path, self.dbs_path)
+            module_name = rel_path.replace(os.sep, ".").replace(".py", "")
+            
             instructions_module = importlib.import_module(module_name)
             # Get the instructions from the module.
-            print(f"Getting instructions from module '{module_name}'")
-            instructions = getattr(instructions_module, "default_instructions", None)
-            print(f"Instructions loaded: {instructions}")
+            instructions = getattr(instructions_module, "instructions", None)
             if instructions is None:
                 raise ImportError(f"Instructions not found in module '{module_name}'.")
-            # Remove the directory from the system path.
-            sys.path.remove(os.path.dirname(instructions_path))
             # Check if the instructions are a dictionary.
             if not isinstance(instructions, dict):
                 raise TypeError(f"Instructions for '{db_name}' must be a dictionary.")
             
             return instructions
         except ModuleNotFoundError as e:
-            print(f"")
             raise ImportError(f"Failed to import instructions module: {e}")
         
-    def set_variants_db_instructions(self, db_name: str) -> dict:
-        """
-        Sets the instructions for the specified database.
-        Loads the instructions from {self.dbs_path}/{db_name}/instructions.py.
-        For the nested 'annotations' dict, it merges the default annotations with the db-specific annotations,
-        using the db-specific ones when available and defaulting to those missing.
-        For 'pre_processor', if it's missing in the db instructions, it uses the default pre_processor.
-        """
-        # Load the instructions for the specified db.
-        try:
-            db_instructions = self.get_db_instructions(db_name)
-            # Load the default instructions to fill in missing values.
-            default_instructions = self.get_db_instructions("default")
-            if default_instructions is None:
-                raise ValueError("Default instructions not found.")
-            
-            # Merge annotations:
-            # Start with a copy of the default annotations.
-            merged_annotations = default_instructions.get("annotations").copy()
-            # If the db instructions provide annotations, update (override/add) them.
-            if "annotations" in db_instructions and isinstance(db_instructions["annotations"], dict):
-                merged_annotations.update(db_instructions["annotations"])
-            
-            # For the pre_processor, use the db instructions value if available, otherwise fall back to default.
-            pre_processor = db_instructions.get("pre_processor", None)
-            if pre_processor is None:
-                pre_processor = default_instructions.get("pre_processor")
-            
-            # Build the merged instructions dictionary.
-            merged_instructions = {
-                "annotations": merged_annotations,
-                "pre_processor": pre_processor,
-            }
-            
-            # Update the variants_instructions_map.
-            self.variants_instructions_map = merged_instructions
-            print(f"Instructions for '{db_name}' loaded and merged with default where necessary.")
-            return merged_instructions
-        except FileNotFoundError as e:
-            db_instructions = None
-            print(f"Did not find instructions for database '{db_name}': {e}")
-        except ImportError as e:
-            db_instructions = None
-            print(f"Failed to import instructions for database '{db_name}': {e}")
-        except Exception as e:
-            db_instructions = None
-            print(f"An unexpected error occurred while loading instructions for database '{db_name}': {e}")
-        finally:
-            if db_instructions is None:
-                db_instructions = self.get_db_instructions("default")
-                print(f"Using default instructions instead.")
+    def get_final_instructions(self, db_name):
+        db_instructions = self.get_db_instructions(db_name)
+        default_instructions = self.variants_instructions_map.copy()
 
-    
-    def set_validation_db_instructions(self, db_name: str) -> dict:
-        """
-        Sets the instructions for the specified validation database.
-        Loads the instructions from {self.dbs_path}/validation/{db_name}/instructions.py.
-        The instructions file of the validation database should follow the same structure as the dont have annotations but have pre_process and validator functions.
-        """
-        try:
-            db_instructions = self.get_db_instructions(db_name, "validation")
-            # Load the default instructions to fill in missing values.
-            default_instructions = self.get_db_instructions("default", "validation")
-            if default_instructions is None:
-                raise ValueError("Default validation instructions not found.")
-            
-            # For the pre_processor, use the db instructions value if available, otherwise fall back to default.
-            pre_processor = db_instructions.get("pre_processor", None)
-            if pre_processor is None:
-                pre_processor = default_instructions.get("pre_processor")
-            validator = db_instructions.get("validator", None)
-            if validator is None:
-                validator = default_instructions.get("validator")
-            
-            # Build the merged instructions dictionary.
-            merged_instructions = {
-                "pre_processor": pre_processor,
-                "validator": validator,
-            }
-            
-            # Update the validation_instructions_map.
-            self.validation_instructions_map = merged_instructions
-            print(f"Validation instructions for '{db_name}' loaded and merged with default where necessary.")
-            return merged_instructions
-        except FileNotFoundError as e:
-            db_instructions = None
-            print(f"Did not find validation instructions for database '{db_name}': {e}")
-        except ImportError as e:
-            db_instructions = None
-            print(f"Failed to import validation instructions for database '{db_name}': {e}")
-        except Exception as e:
-            db_instructions = None
-            print(f"An unexpected error occurred while loading validation instructions for database '{db_name}': {e}")
-        finally:
-            if db_instructions is None:
-                db_instructions = self.get_db_instructions("default", "validation")
-                print(f"Using default validation instructions instead.")
+        def recursive_merge(default, override):
+            merged = default.copy()
+            for key, value in override.items():
+                # If both the default value and the override value are dictionaries,
+                # then recursively merge them.
+                if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+                    merged[key] = recursive_merge(merged[key], value)
+                else:
+                    # Otherwise, override the default with the db-specific value.
+                    merged[key] = value
+            return merged
+
+        merged_instructions = recursive_merge(default_instructions, db_instructions)
+        return merged_instructions
+
+
     def get_annotations_names(self):
         return list(self.variants_instructions_map["annotations"].keys())
     
@@ -164,7 +81,8 @@ class InstructionsProvider:
         if not os.path.isdir(dbs_path):
             raise NotADirectoryError(f"Path '{dbs_path}' is not a directory.")
         
-        dbs_names = [name for name in os.listdir(dbs_path) if os.path.isdir(os.path.join(dbs_path, name)) and name != "default" and not name.startswith("__")] 
+        dbs_names = [name for name in os.listdir(dbs_path)
+                     if os.path.isdir(os.path.join(dbs_path, name)) and name != "default" and not name.startswith("__")]
         return dbs_names
     
     def get_key_columns(self):
@@ -187,28 +105,36 @@ class InstructionsProvider:
                 db_path = self.validation_dbs_path
             else:
                 raise ValueError(f"Invalid db_type '{db_type}'. Must be 'variants' or 'validation'.")
-            db_path = os.path.join(db_path, db_name)
-            if not os.path.isdir(db_path):
-                raise NotADirectoryError(f"Path '{db_path}' is not a directory.")
+            # Construct the path to the database directory
+            db_dir = os.path.join(db_path, db_name)
+            # Look for a file named variants_table with any extension
+            potential_files = [f for f in os.listdir(db_dir) if f.startswith("variants_table")]
+            if not potential_files:
+                raise FileNotFoundError(f"Database file not found in {db_dir}. Expected a file starting with 'variants_table'.")
+            
+            # Use the first matching file
+            db_path = os.path.join(db_dir, potential_files[0])
+            if not os.path.isfile(db_path):
+                raise FileNotFoundError(f"Database file not found at {db_path}.")
             
             # Load the instructions for the specified db.
-            instructions_map = self.set_variants_db_instructions(db_name) if db_type == "variants" else self.set_validation_db_instructions(db_name)
+            instructions_map = self.get_final_instructions(db_name)
+            
             # Create a Db instance.
-            db_key_cols = instructions_map("key_cols")
-            db_description = instructions_map("description")
-            db_pre_processor = instructions_map("pre_processor")
-            db_instance = Db(
-                name=db_name,
-                key_cols=db_key_cols,
+            db_instance = (VariantsDb(
                 db_path=db_path,
-                description=db_description,
-                pre_processor=db_pre_processor
-            )
+                instructions=instructions_map,
+            ) if db_type == "variants"
+            else ValidationDb(
+                db_path=db_path,
+                instructions=instructions_map,
+            ))
 
             return db_instance
-        finally:
-            # Reset the instructions to default after creating the instance.
-            self.set_variants_db_instructions("default")
+        except Exception as e:
+            print(f"Failed to create database instance for '{db_name}': {e}")
+            return None
+
 
 
 if __name__ == "__main__":
@@ -236,7 +162,6 @@ if __name__ == "__main__":
     print(processed_data)
 
 
-
 def check_dbs_dir_structure(dbs_path: str):
     """
     Checks if the dbs_path contains the expected directory structure.
@@ -247,12 +172,11 @@ def check_dbs_dir_structure(dbs_path: str):
                 - instructions.py
             - <other_db>
                 - instructions.py
-        - validation (optional, but if exist nust folow this format)
+        - validation (optional, but if exists must follow this format)
             - default
                 - instructions.py
             - <other_db>
                 - instructions.py
-            
     """
     if not os.path.isdir(dbs_path):
         raise NotADirectoryError(f"Path '{dbs_path}' is not a directory.")

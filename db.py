@@ -22,7 +22,7 @@ class Db(ABC):
         self.name = instructions.get("name")
         self.key_cols = instructions.get("key_cols")
         self.description = instructions.get("description", None)
-        self.pre_processor = instructions.get("pre_processor", None)
+        self.pre_processor = instructions.get("pre_processor")
         self.df = None
 
     def pre_process(self) -> pd.DataFrame:
@@ -49,20 +49,26 @@ class Db(ABC):
         """
         return self.description
     
-    def upload_db(self, file_path: str) -> None:
+    def upload_db(self) -> None:
+        if self.instructions.get("upload_function") is None:
+            self.df = pd.read_csv(self.db_path)
+        else:
+            self.df = self.instructions["upload_function"](self.db_path)
+
+    
+    def get_instructions(self) -> dict[str, any]:
         """
-        Uploads the database from a file path.
+        Returns the instructions for the database.
         """
-        self.df = pd.read_csv(file_path)
-        print(f"Database '{self.name}' uploaded from {file_path}.")
+        return self.instructions
 
     
 
 
-class VariantDb(Db):
+class VariantsDb(Db):
     def __init__(self, db_path: str, instructions: dict[str, any]) -> None:
         """
-        Initializes a VariantDb object.
+        Initializes a VariantsDb object.
 
         :param db_path: Path to the database.
         :param instructions: Instructions for the database.

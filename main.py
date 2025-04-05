@@ -1,5 +1,6 @@
 from instructions_provider import InstructionsProvider
 from extended_table import ExtendedTable
+from db import Db, VariantsDb, ValidationDb
 import os
 import sys
 
@@ -42,18 +43,32 @@ def main():
     print(f"Available annotation columns: {annotations_cols}")
     key_cols = instructions_provider.get_key_columns()
     print(f"Key columns for the new table: {key_cols}")
-    for var_db in variants_dbs:
-        # Create a Db instance for each database
-        db_instance = instructions_provider.create_db_instance(var_db)
-        print(f"Database instance created for {var_db}.")
-    for val_db in validation_dbs:
-        # Create a Db instance for each validation database
-        db_instance = instructions_provider.create_db_instance(val_db, db_type="validation")
-        print(f"Validation database instance created for {val_db}.")
+    # Create variant database instances using map
+    variant_db_instances = list(map(lambda db_name: instructions_provider.create_db_instance(db_name), variants_dbs))
+    print(f"Created {len(variant_db_instances)} variant database instances.")
+    
+    # Print details for each database instance
+    for i, db_instance in enumerate(variant_db_instances):
+        print(f"Database instance created for {variants_dbs[i]}.")
+        print(f"Database instructions: {db_instance.get_instructions()}")
+        print(f"Is it VarianrDb? {isinstance(db_instance, VariantsDb)}")
+        print(f"db_instance type: {type(db_instance)}")
+    # Create validation database instances using map
+    validation_db_instances = list(map(lambda db_name: instructions_provider.create_db_instance(db_name, "validation"), validation_dbs))
+    print(f"Created {len(validation_db_instances)} validation database instances.")
+    # Print details for each validation database instance
+    for i, db_instance in enumerate(validation_db_instances):
+        print(f"Validation database instance created for {validation_dbs[i]}.")
+        print(f"Validation database instructions: {db_instance.get_instructions()}")
+    
 
 
+    # Create an ExtendedTable instance
+    extended_table = ExtendedTable(key_cols=key_cols, instructions_provider=instructions_provider, variant_dbs=variant_db_instances, validation_dbs=validation_db_instances, ann_cols=annotations_cols)
 
-
+    extended_table.merge_all_dbs()
+    print("All databases merged into the extended table.")
+    print(f"Extended table: \n{extended_table.table}")
 
     # default_instructions = os.path.join(dbs_dir, "default", "instructions.py")
     # if not os.path.isfile(default_instructions):
