@@ -27,6 +27,8 @@ class ExtendedTable:
         validation_dbs_names = list(map(lambda x: x.name, self.validation_dbs))
         self.table = pd.DataFrame(columns=self.key_cols + variants_dbs_names + validation_dbs_names + self.ann_cols)
         print("Basic table created with key columns.")
+        print(f"Table columns: {self.table.columns}")
+
 
     def register_db(self, db: Db) -> None:
         """
@@ -67,8 +69,6 @@ class ExtendedTable:
         # If the extended table is empty, then all rows from db.df are new.
         if self.table.empty:
             self.create_basic_table()
-            print("Extended table was empty, created a basic table.")
-            print(f"Table columns: {self.table.columns}")
             
         # Ensure the indicator column exists in the extended table.
         if indicator_col not in self.table.columns:

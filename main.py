@@ -46,21 +46,12 @@ def main():
     # Create variant database instances using map
     variant_db_instances = list(map(lambda db_name: instructions_provider.create_db_instance(db_name), variants_dbs))
     print(f"Created {len(variant_db_instances)} variant database instances.")
-    
-    # Print details for each database instance
-    for i, db_instance in enumerate(variant_db_instances):
-        print(f"Database instance created for {variants_dbs[i]}.")
-        print(f"Database instructions: {db_instance.get_instructions()}")
-        print(f"Is it VarianrDb? {isinstance(db_instance, VariantsDb)}")
-        print(f"db_instance type: {type(db_instance)}")
+
     # Create validation database instances using map
     validation_db_instances = list(map(lambda db_name: instructions_provider.create_db_instance(db_name, "validation"), validation_dbs))
     print(f"Created {len(validation_db_instances)} validation database instances.")
     # Print details for each validation database instance
-    for i, db_instance in enumerate(validation_db_instances):
-        print(f"Validation database instance created for {validation_dbs[i]}.")
-        print(f"Validation database instructions: {db_instance.get_instructions()}")
-    
+
 
 
     # Create an ExtendedTable instance
