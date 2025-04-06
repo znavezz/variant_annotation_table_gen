@@ -74,21 +74,8 @@ class VariantsDb(Db):
         :param instructions: Instructions for the database.
         """
         super().__init__(db_path, instructions)
-        self.df = None
-        self.annotations = instructions.get("annotations", None)
     
-    def get_annotations(self) -> dict[str, any]:
-        """
-        Returns the annotations for the database.
-        """
-        return self.annotations
-    
-    def set_annotations(self, annotations: dict[str, any]) -> None:
-        """
-        Sets the annotations for the database.
-        """
-        self.annotations = annotations
-        
+
     
 class ValidationDb(Db):
     def __init__(self, db_path: str, instructions: dict[str, any]) -> None:
@@ -99,7 +86,6 @@ class ValidationDb(Db):
         :param instructions: Instructions for the database.
         """
         super().__init__(db_path, instructions)
-        self.df = None
         self.validator = instructions.get("validator", None)
 
     def get_validator(self) -> dict[str, any]:
@@ -113,3 +99,15 @@ class ValidationDb(Db):
         Sets the validator for the database.
         """
         self.validator = validator
+    
+    def validate(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Validates the DataFrame using the provided validator function.
+        """
+        if self.validator is None:
+            raise ValueError("Validator is not set.")
+        
+        if not callable(self.validator):
+            raise ValueError("Validator is not callable.")
+        
+        return self.validator(self, df)

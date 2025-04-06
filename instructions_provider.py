@@ -50,9 +50,10 @@ class InstructionsProvider:
         except ModuleNotFoundError as e:
             raise ImportError(f"Failed to import instructions module: {e}")
         
-    def get_final_instructions(self, db_name):
-        db_instructions = self.get_db_instructions(db_name)
-        default_instructions = self.variants_instructions_map.copy()
+    def get_final_instructions(self, db_name: str, db_type: str = "variants"):
+        db_instructions = self.get_db_instructions(db_name, db_type)
+        default_instructions = (self.variants_instructions_map.copy() if db_type == "variants"
+                               else self.validation_instructions_map.copy())
 
         def recursive_merge(default, override):
             merged = default.copy()
@@ -118,7 +119,7 @@ class InstructionsProvider:
                 raise FileNotFoundError(f"Database file not found at {db_path}.")
             
             # Load the instructions for the specified db.
-            instructions_map = self.get_final_instructions(db_name)
+            instructions_map = self.get_final_instructions(db_name, db_type)
             
             # Create a Db instance.
             db_instance = (VariantsDb(

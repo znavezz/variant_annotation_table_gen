@@ -120,12 +120,21 @@ class ExtendedTable:
 
     
 
-    def save_table(self, file_path: str) -> None:
+    def save_table(self, file_path: str, file_format:str="csv") -> None:
         """
-        Saves the extended table to a file path.
+        Saves the extended table to a file in the specified format.
         """
-        self.table.to_csv(file_path, index=False)
-        print(f"Table saved to {file_path}.")
+        if file_format == "csv":
+            self.table.to_csv(file_path, index=False)
+            print(f"Table saved to {file_path} in CSV format.")
+        elif file_format == "xlsx":
+            self.table.to_excel(file_path, index=False)
+            print(f"Table saved to {file_path} in Excel format.")
+        elif file_format == "tsv":
+            self.table.to_csv(file_path, sep='\t', index=False)
+            print(f"Table saved to {file_path} in TSV format.")
+        else:
+            raise ValueError("Unsupported file format. Supported formats are: csv, xlsx, tsv.")
 
     def validate_table(self) -> None:
         """

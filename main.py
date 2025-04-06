@@ -58,8 +58,17 @@ def main():
     extended_table = ExtendedTable(key_cols=key_cols, instructions_provider=instructions_provider, variant_dbs=variant_db_instances, validation_dbs=validation_db_instances, ann_cols=annotations_cols)
 
     extended_table.merge_all_dbs()
+    extended_table.validate_table()
     print("All databases merged into the extended table.")
     print(f"Extended table: \n{extended_table.table}")
+
+    usr_input = input("Do you want to save the table to a file? (y/n): ")
+    if usr_input.lower() == 'y':
+        # Save the file in the current pwd
+        file_path = os.path.join(os.getcwd(), "extended_table.tsv")
+        extended_table.save_table(file_path, "tsv")
+    else:
+        print("Table not saved.")
 
     # default_instructions = os.path.join(dbs_dir, "default", "instructions.py")
     # if not os.path.isfile(default_instructions):
