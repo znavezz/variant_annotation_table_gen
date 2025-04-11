@@ -70,42 +70,5 @@ def main():
     else:
         print("Table not saved.")
 
-    # default_instructions = os.path.join(dbs_dir, "default", "instructions.py")
-    # if not os.path.isfile(default_instructions):
-    #     print(f"Default instructions file not found at {default_instructions}. Please check the path and try again.")
-    #     sys.exit(1)
-    # # Load the default instructions
-    
-    # instructions = get_db_instructions(default_instructions)
-
-    # instructions_provider = InstructionsProvider(instructions)
-    # key_cols = get_key_columns()
-    # print(f"Key columns for the new table: {key_cols}")
-    # ann_cols = instructions_provider.get_annotations_names()
-    # print(f"Available annotation columns: {ann_cols}")
-    # extended_table = extended_table.ExtendedTable(key_cols=key_cols, 
-    # instructions_provider=instructions_provider, ann_cols=ann_cols)
-    # ### TODO: complete the extended_table creation
-    # usr_input = input("If you have an existing variant table, please enter the path to it. If not, press Enter to continue: ")
-    # if usr_input:
-    #     # Check if the file exists
-    #     if os.path.isfile(usr_input):
-    #         file_path = os.path.abspath(usr_input)
-    #         print(f"File {usr_input} exists.")
-            
-    #         # Upload the existing table
-    #         extended_table.upload_table(file_path)
-
-    #     else:
-    #         print(f"File {usr_input} does not exist. Please check the path and try again.")
-    # else:
-    #     print("No file path provided. Proceeding without an existing variant table...")
-    #     # Proceed with creating a new table
-    #     extended_table.create_basic_table()
-
-    # # Register the databases
-
-    
-
 if __name__ == "__main__":
     main()
